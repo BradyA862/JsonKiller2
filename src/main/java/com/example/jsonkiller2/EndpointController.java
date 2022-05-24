@@ -8,8 +8,10 @@ import com.example.jsonkiller2.dateTime.DateTime;
 import com.example.jsonkiller2.ip.IP;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletRequest;
@@ -27,22 +29,44 @@ public class EndpointController {
 
     private final HashMap<UUID, Long> tokenMap;
 
+    private final RestTemplate rest;
+
     @Autowired
     public EndpointController(@NonNull UserAccountRepository repository) {
         this.repository = repository;
         this.tokenMap = new HashMap<>();
+        rest = new RestTemplate();
     }
 
-    public EndpointController(@NonNull UserAccountRepository repository, @NonNull HashMap<UUID, Long> tokenMap) {
+    public EndpointController(@NonNull UserAccountRepository repository,
+                              @NonNull HashMap<UUID, Long> tokenMap, RestTemplate rest) {
         this.repository = repository;
         this.tokenMap = tokenMap;
+        this.rest = rest;
+    }
+
+    public void checkAuthorized(UUID token) {
+        String url = "http://localhost:8081/isAuthorized?token=" + token;
+        final ResponseEntity<Void> response = rest.getForEntity(url, Void.class);
+
+        switch (response.getStatusCode()) {
+            case OK:
+                return;
+
+            case UNAUTHORIZED:
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+
+            default:
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
     }
 
     /* IP */
 
     @GetMapping("/ip")
     @CrossOrigin
-    public IP ip(UUID token, HttpServletRequest request) {
+    public IP ip(@RequestParam UUID token, HttpServletRequest request) {
         if (!tokenMap.containsKey(token))
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
 
@@ -104,5 +128,8 @@ public class EndpointController {
         return token;
     }
 
+
+
     /* Logout */
+
 }

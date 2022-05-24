@@ -14,6 +14,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletRequest;
@@ -44,7 +47,41 @@ class EndpointControllerTest {
     @Mock
     HashMap<UUID, Long> tokenMap;
 
+    @Mock
+    RestTemplate rest;
+
     ObjectMapper objectMapper = new ObjectMapper();
+
+    @Test
+    void itShouldThrowUnauthWhenOtherStatusIsUnauth() {
+        final UUID token = UUID.randomUUID();
+        String url = "http://localhost:8081/isAuthorized?token=" + token;
+        when(rest.getForEntity(url, Void.class))
+                .thenReturn(new ResponseEntity<Void>(HttpStatus.UNAUTHORIZED));
+        final ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> controller.checkAuthorized(token));
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatus());
+    }
+
+    @Test
+    void itShouldThrowIntErrWhenOtherStatusIsOther() {
+        final UUID token = UUID.randomUUID();
+        String url = "http://localhost:8081/isAuthorized?token=" + token;
+        when(rest.getForEntity(url, Void.class))
+                .thenReturn(new ResponseEntity<Void>(HttpStatus.CONFLICT));
+        final ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> controller.checkAuthorized(token));
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exception.getStatus());
+    }
+
+    @Test
+    void itShouldNotThrowWhenOtherStatusIsOk() {
+        final UUID token = UUID.randomUUID();
+        String url = "http://localhost:8081/isAuthorized?token=" + token;
+        when(rest.getForEntity(url, Void.class))
+                .thenReturn(new ResponseEntity<Void>(HttpStatus.OK));
+        assertDoesNotThrow(() -> controller.checkAuthorized(token));
+    }
 
     @Test
     void itShouldReturnUnauthWhenUserIsWrong() {
